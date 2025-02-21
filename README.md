@@ -1,33 +1,127 @@
-# L1BossBridge Smart Contract Audit Report
+<p align="center">
+<img src="./images/boss-bridge.png" width="400" alt="puppy-raffle">
+<br/>
 
-## Overview
+# Boss Bridge
 
-This repository contains the security audit report for the `L1BossBridge` smart contract. The contract facilitates token bridging between Layer 1 (L1) and Layer 2 (L2) by locking ERC-20 tokens in an `L1Vault` and emitting deposit events for off-chain processing. Withdrawals require ECDSA signature verification to prevent unauthorized access.
+This project presents a simple bridge mechanism to move our ERC20 token from L1 to an L2 we're building.
+The L2 part of the bridge is still under construction, so we don't include it here.
 
-## Audit Scope
+In a nutshell, the bridge allows users to deposit tokens, which are held into a secure vault on L1. Successful deposits trigger an event that our off-chain mechanism picks up, parses it and mints the corresponding tokens on L2.
 
-- **Contract Audited:** `L1BossBridge`
-- **Blockchain Platform:** Ethereum (Solidity 0.8.20)
-- **External Dependencies:** OpenZeppelin Contracts (Ownable, ReentrancyGuard, SafeERC20, ECDSA, etc.)
+To ensure user safety, this first version of the bridge has a few security mechanisms in place:
 
-## Audit Objectives
+- The owner of the bridge can pause operations in emergency situations.
+- Because deposits are permissionless, there's an strict limit of tokens that can be deposited.
+- Withdrawals must be approved by a bridge operator.
 
-The primary objectives of this audit are:
+We plan on launching `L1BossBridge` on both Ethereum Mainnet and ZKSync.
 
-- Ensure the contract functions as intended without vulnerabilities.
-- Identify potential security risks, including reentrancy, unauthorized access, and replay attacks.
-- Review the correctness and efficiency of signature verification and deposit/withdrawal mechanisms.
+## Token Compatibility
 
-## Key Findings
+For the moment, assume _only_ the `L1Token.sol` or copies of it will be used as tokens for the bridge. This means all other ERC20s and their [weirdness](https://github.com/d-xo/weird-erc20) is considered out-of-scope.
 
-_(Detailed findings and recommendations will be included in the full report.)_
+## On withdrawals
 
-## Files
+The bridge operator is in charge of signing withdrawal requests submitted by users. These will be submitted on the L2 component of the bridge, not included here. Our service will validate the payloads submitted by users, checking that the account submitting the withdrawal has first originated a successful deposit in the L1 part of the bridge.
 
-- `audit-report.pdf` - Full security audit report with findings, recommendations, and risk assessments.
-- `contracts/` - Contains the audited smart contract source code.
-- `README.md` - This document.
+# Getting Started
 
-## Disclaimer
+## Requirements
 
-This audit does not guarantee the complete security of the contract. Users should perform their own due diligence before deploying or interacting with the contract.
+- [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+  - You'll know you did it right if you can run `git --version` and you see a response like `git version x.x.x`
+- [foundry](https://getfoundry.sh/)
+  - You'll know you did it right if you can run `forge --version` and you see a response like `forge 0.2.0 (816e00b 2023-03-16T00:05:26.396218Z)`
+
+## Quickstart
+
+```
+git clone https://github.com/MDulquerS/Boss-Bridge
+cd 7-boss-bridge-audit
+make
+```
+
+or
+
+```
+git clone https://github.com/MDulquerS/Boss-Bridge
+cd 7-boss-bridge-audit
+forge install
+forge build
+```
+
+# Usage
+
+## Testing
+
+```
+forge test
+```
+
+## Test Coverage
+
+```
+forge coverage
+```
+
+and for coverage based testing:
+
+```
+forge coverage --report debug
+```
+
+## Static Analysis
+
+### Slither
+
+```
+make slither
+```
+
+### Aderyn
+
+```
+make aderyn
+```
+
+## Audit Scope Details
+
+- Commit Hash: 07af21653ab3e8a8362bf5f63eb058047f562375
+- In scope
+
+```
+./src/
+#-- L1BossBridge.sol
+#-- L1Token.sol
+#-- L1Vault.sol
+#-- TokenFactory.sol
+```
+
+- Solc Version: 0.8.20
+- Chain(s) to deploy contracts to:
+  - Ethereum Mainnet:
+    - L1BossBridge.sol
+    - L1Token.sol
+    - L1Vault.sol
+    - TokenFactory.sol
+  - ZKSync Era:
+    - TokenFactory.sol
+  - Tokens:
+    - L1Token.sol (And copies, with different names & initial supplies)
+
+## Actors/Roles
+
+- Bridge Owner: A centralized bridge owner who can:
+  - pause/unpause the bridge in the event of an emergency
+  - set `Signers` (see below)
+- Signer: Users who can "send" a token from L2 -> L1.
+- Vault: The contract owned by the bridge that holds the tokens.
+- Users: Users mainly only call `depositTokensToL2`, when they want to send tokens from L1 -> L2.
+
+## Known Issues
+
+- We are aware the bridge is centralized and owned by a single user, aka it is centralized.
+- We are missing some zero address checks/input validation intentionally to save gas.
+- We have magic numbers defined as literals that should be constants.
+- Assume the `deployToken` will always correctly have an L1Token.sol copy, and not some [weird erc20](https://github.com/d-xo/weird-erc20)
